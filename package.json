@@ -1,0 +1,22 @@
+{
+	"name": "Overgrown",
+	"type": "module",
+	"scripts": {
+		"build": "vite build",
+		"dev": "vite",
+		"preview": "vite preview",
+		"zip": "npm run build && mkdir -p dist && zip -r dist/game.zip dist -x \"**/.DS_Store\"",
+		"check": "tsc",
+		"dev:desktop": "tauri dev",
+		"build:desktop": "tauri build"
+	},
+	"dependencies": {
+		"kaplay": "^3001.0.19"
+	},
+	"devDependencies": {
+		"@tauri-apps/cli": "^1.6.3",
+		"@types/node": "^24.2.1",
+		"typescript": "^5.9.2",
+		"vite": "^7.1.2"
+	}
+}
