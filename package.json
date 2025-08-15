@@ -14,6 +14,7 @@
 		"kaplay": "^3001.0.19"
 	},
 	"devDependencies": {
+		"@kayahr/tiled": "^0.0.1",
 		"@tauri-apps/cli": "^1.6.3",
 		"@types/node": "^24.2.1",
 		"typescript": "^5.9.2",

@@ -1,36 +1,45 @@
 import { spin } from "../components.ts";
 
 export function makePlayer() {
-  const player = make([
-    sprite("bean"),
-    pos(100, 400),
-    anchor("center"),
-    area(),
-    body({ jumpForce: 700 }),
-    doubleJump(),
-    rotate(0),
-    spin(),
-    "palyer",
-  ]);
+	const player = make([
+		sprite("bean"),
+		pos(100, 400),
+		anchor("center"),
+		area(),
+		body({ jumpForce: 700 }),
+		doubleJump(),
+		rotate(0),
+		spin(),
+		scale(0.5),
+		"palyer",
+	]);
 
-  player.onKeyPress("space", () => {
-    player.doubleJump();
-  });
+	player.onUpdate(() => {
+		setCamPos(width() / 2, player.worldPos().y);
+	});
 
-  player.onKeyDown("left", () => {
-    player.move(-100, 0);
-    player.flipX = false;
-  });
+	player.onPhysicsResolve(() => {
+		setCamPos(width() / 2, player.worldPos().y);
+	});
 
-  player.onKeyDown("right", () => {
-    player.move(100, 0);
-    player.flipX = true;
-  });
+	player.onButtonPress("jump", () => {
+		player.doubleJump();
+	});
 
-  player.onDoubleJump(() => {
-    player.spin();
-    player.trigger("bloom");
-  });
+	player.onButtonDown("moveLeft", () => {
+		player.move(-100, 0);
+		player.flipX = false;
+	});
 
-  return player;
+	player.onButtonDown("moveRight", () => {
+		player.move(100, 0);
+		player.flipX = true;
+	});
+
+	player.onDoubleJump(() => {
+		player.spin();
+		player.trigger("bloom");
+	});
+
+	return player;
 }

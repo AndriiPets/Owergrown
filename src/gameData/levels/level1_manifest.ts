@@ -1,0 +1,25 @@
+export const defaultStartMapPath = "default_map.json";
+
+export const level1Chunks = [
+	"level1/chunk_1.json",
+	"level1/chunk_2.json",
+	"level1/chunk_3.json",
+	"level1/chunk_4.json",
+	"level1/chunk_5.json",
+	"level1/chunk_6.json",
+	"level1/chunk_7.json",
+	"level1/chunk_8.json",
+	"level1/chunk_9.json",
+	"level1/chunk_10.json",
+	"level1/chunk_11.json",
+	"level1/chunk_12.json",
+	"level1/chunk_13.json",
+	"level1/chunk_14.json",
+	"level1/chunk_15.json",
+	"level1/chunk_16.json",
+	"level1/chunk_17.json",
+	"level1/chunk_18.json",
+	"level1/chunk_19.json",
+	"level1/chunk_20.json",
+	"level1/chunk_21.json",
+];
