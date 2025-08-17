@@ -4,11 +4,11 @@
  "layers":[
         {
          "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            85, 86, 87, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 85, 86, 86, 86, 87, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 85, 86, 87,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -49,6 +49,40 @@
                  "width":48,
                  "x":112,
                  "y":80
+                }, 
+                {
+                 "height":16,
+                 "id":13,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":80,
+                 "x":48,
+                 "y":48
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":3,
+         "name":"positions",
+         "objects":[
+                {
+                 "height":0,
+                 "id":14,
+                 "name":"enemy",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":96,
+                 "y":48
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -56,8 +90,8 @@
          "x":0,
          "y":0
         }],
- "nextlayerid":3,
- "nextobjectid":9,
+ "nextlayerid":4,
+ "nextobjectid":15,
  "orientation":"orthogonal",
  "properties":[
         {
@@ -83,7 +117,11 @@
  "renderorder":"right-down",
  "tiledversion":"1.11.2",
  "tileheight":16,
- "tilesets":[],
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
  "tilewidth":16,
  "type":"map",
  "version":"1.10",

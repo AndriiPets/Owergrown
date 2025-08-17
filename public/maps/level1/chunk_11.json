@@ -3,16 +3,16 @@
  "infinite":false,
  "layers":[
         {
-         "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+         "data":[230, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            248, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            248, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            248, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            248, 0, 0, 0, 85, 86, 87, 0, 0, 0,
+            248, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            248, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            248, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            248, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            270, 0, 0, 0, 0, 0, 0, 85, 86, 87],
          "height":10,
          "id":1,
          "name":"platforms",
@@ -49,6 +49,52 @@
                  "width":16,
                  "x":0,
                  "y":0
+                }, 
+                {
+                 "height":16,
+                 "id":16,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":64,
+                 "y":64
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":3,
+         "name":"positions",
+         "objects":[
+                {
+                 "height":0,
+                 "id":17,
+                 "name":"enemy",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":80,
+                 "y":64
+                }, 
+                {
+                 "height":0,
+                 "id":18,
+                 "name":"crate",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":144,
+                 "y":144
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -56,8 +102,8 @@
          "x":0,
          "y":0
         }],
- "nextlayerid":3,
- "nextobjectid":16,
+ "nextlayerid":4,
+ "nextobjectid":19,
  "orientation":"orthogonal",
  "properties":[
         {
@@ -83,7 +129,11 @@
  "renderorder":"right-down",
  "tiledversion":"1.11.2",
  "tileheight":16,
- "tilesets":[],
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
  "tilewidth":16,
  "type":"map",
  "version":"1.10",

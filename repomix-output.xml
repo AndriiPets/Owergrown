@@ -1,0 +1,4455 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.gitignore
+index.html
+package.json
+public/maps/chunk_prototype.json
+public/maps/default_map.json
+public/maps/level1/chunk_1.json
+public/maps/level1/chunk_10.json
+public/maps/level1/chunk_11.json
+public/maps/level1/chunk_12.json
+public/maps/level1/chunk_13.json
+public/maps/level1/chunk_14.json
+public/maps/level1/chunk_15.json
+public/maps/level1/chunk_16.json
+public/maps/level1/chunk_17.json
+public/maps/level1/chunk_18.json
+public/maps/level1/chunk_19.json
+public/maps/level1/chunk_2.json
+public/maps/level1/chunk_20.json
+public/maps/level1/chunk_21.json
+public/maps/level1/chunk_3.json
+public/maps/level1/chunk_4.json
+public/maps/level1/chunk_5.json
+public/maps/level1/chunk_6.json
+public/maps/level1/chunk_7.json
+public/maps/level1/chunk_8.json
+public/maps/level1/chunk_9.json
+README.md
+src-tauri/.gitignore
+src-tauri/build.rs
+src-tauri/Cargo.toml
+src-tauri/src/main.rs
+src-tauri/tauri.conf.json
+src/assets.ts
+src/components.ts
+src/gameData/levels/level1_manifest.ts
+src/kaplay.ts
+src/main.ts
+src/objects/blood.ts
+src/objects/bullet.ts
+src/objects/enemy.ts
+src/objects/flamebar.ts
+src/objects/platform.ts
+src/objects/player.ts
+src/objects/turret.ts
+src/scenes/game.ts
+src/scenes/loader.ts
+src/types.ts
+src/utils.ts
+tsconfig.json
+vite.config.ts
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="src/objects/blood.ts">
+import { Vec2 } from "kaplay";
+
+export function spawnBloodParticle(position: Vec2) {
+	const particle = add([
+		circle(7),
+		outline(2, BLACK),
+		pos(position),
+		anchor("center"),
+		scale(rand(0.5, 1)),
+		area({ collisionIgnore: ["blood", "enemy", "player"] }),
+		body(),
+		opacity(1),
+		lifespan(3),
+		move(choose([LEFT, RIGHT]), rand(60, 240)),
+		"blood",
+	]);
+
+	particle.onAdd(() => particle.jump(rand(60, 240)));
+	return particle;
+}
+</file>
+
+<file path="src/objects/bullet.ts">
+import { bulletData } from "../types";
+
+export function spawnBullet(data: bulletData) {
+	const bullet = add([
+		circle(4),
+		color(rgb(0, 0, 0)),
+		outline(3, WHITE),
+		move(data.dir, data.speed),
+		pos(data.position),
+		area({ collisionIgnore: [data.shooter, "platform", "bullet"] }),
+		offscreen({ destroy: true }),
+		"bullet",
+		{ data: data },
+	]);
+
+	bullet.on("collide", (obj, col) => {
+		bullet.destroy();
+	});
+}
+</file>
+
+<file path="src/objects/enemy.ts">
+import { GameObj, Vec2 } from "kaplay";
+import { platformPatrol } from "../components.ts";
+import { bulletData } from "../types.ts";
+import { spin } from "../components.ts";
+import { spawnBloodParticle } from "../objects/blood.ts";
+
+export function makeEnemy(position: Vec2): GameObj {
+	const enemy = make([
+		sprite("tileset", { frame: 340 }),
+		pos(position.x, position.y),
+		anchor("center"),
+		area({ collisionIgnore: [] }),
+		body(),
+		scale(1),
+		health(3),
+		platformPatrol(),
+		rotate(0),
+		spin(500),
+		timer(),
+		offscreen({ destroy: true }),
+		"enemy",
+		{
+			numBlood: 0,
+		},
+	]);
+
+	enemy.onAdd(() => {
+		enemy.play("enemy_move");
+		enemy.numBlood = enemy.hp() * 2;
+	});
+
+	enemy.onCollide("bullet", (obj, col) => {
+		if (!obj.data) {
+			debug.log("bullet has no data");
+		}
+		const bulletData = obj.data as bulletData;
+
+		enemy.hurt(bulletData.damage);
+		debug.log("enemy hit by a bullet health remaining: ", enemy.hp());
+	});
+
+	enemy.onHurt(() => {
+		enemy.jump(150);
+	});
+
+	enemy.onDeath(() => {
+		enemy.spin();
+
+		for (let p: number = 0; p < enemy.numBlood; p++) {
+			wait(p * 0.05, () => {
+				spawnBloodParticle(enemy.pos);
+			});
+		}
+
+		wait(enemy.numBlood * 0.05, () => {
+			enemy.destroy();
+		});
+	});
+
+	return enemy;
+}
+</file>
+
+<file path="src/objects/flamebar.ts">
+import { Vec2 } from "kaplay";
+
+export function makeFlamebar(position: Vec2, angle = 0, num = 4) {
+	// Create a parent game object for position and rotation
+	const flameHead = make([pos(position), rotate(angle)]);
+
+	// Add each section of flame as children
+	for (let i = 0; i < num; i++) {
+		flameHead.add([
+			sprite("tileset", { frame: 22 }),
+			//sprite("pineapple"),
+			pos(0, i * 16),
+			area(),
+			anchor("center"),
+			offscreen({ destroy: true }),
+			"flame",
+		]);
+	}
+
+	// The flame head's rotation will affect all its children
+	flameHead.onUpdate(() => {
+		flameHead.angle += dt() * 60;
+	});
+
+	return flameHead;
+}
+</file>
+
+<file path="src/objects/platform.ts">
+import { Vec2 } from "kaplay";
+import { spin, bounce } from "../components.ts";
+
+export function spawnPlatform(position: Vec2) {
+	const platform = add([
+		rect(64, 10),
+		anchor("center"),
+		pos(position),
+		color(BLUE),
+		area(),
+		body({ isStatic: true }),
+		offscreen({ destroy: true }),
+		scale(1),
+		bounce(),
+		"platform",
+	]);
+
+	platform.onAdd(() => {
+		platform.bounce();
+	});
+
+	platform.onCollide("player", () => {
+		platform.bounce();
+	});
+
+	return platform;
+}
+</file>
+
+<file path="src/objects/turret.ts">
+import { GameObj, Vec2 } from "kaplay";
+import { spin, bounce } from "../components.ts";
+import { spawnBloodParticle } from "../objects/blood.ts";
+import { bulletData } from "../types.ts";
+
+export function makeTurret(position: Vec2): GameObj {
+	const turret = make([
+		sprite("tileset", { frame: 380 }),
+		color(YELLOW),
+		anchor("center"),
+		pos(position),
+		area(),
+		timer(),
+		health(3),
+		scale(1),
+		bounce(),
+		rotate(0),
+		spin(),
+		offscreen({ destroy: true }),
+		"turret",
+		{
+			fireCooldown: 2.0,
+			canFire: true,
+			numBlood: 0,
+		},
+	]);
+
+	turret.onAdd(() => {
+		turret.play("turret_idle");
+		turret.numBlood = turret.hp() * 2;
+	});
+
+	turret.onCollide("bullet", (obj, col) => {
+		if (!obj.data) {
+			debug.log("bullet has no data");
+		}
+		const bulletData = obj.data as bulletData;
+
+		turret.hurt(bulletData.damage);
+		debug.log("enemy hit by a bullet health remaining: ", turret.hp());
+	});
+
+	turret.onHurt(() => {
+		turret.bounce();
+	});
+
+	turret.onUpdate(() => {
+		if (turret.canFire) {
+			turret.trigger("fired");
+			turret.bounce();
+			turret.canFire = false;
+
+			turret.wait(turret.fireCooldown, () => {
+				turret.canFire = true;
+			});
+		}
+	});
+
+	turret.onDeath(() => {
+		turret.spin();
+
+		for (let p: number = 0; p < turret.numBlood; p++) {
+			wait(p * 0.05, () => {
+				spawnBloodParticle(turret.pos);
+			});
+		}
+
+		wait(turret.numBlood * 0.05, () => {
+			turret.destroy();
+		});
+	});
+
+	return turret;
+}
+</file>
+
+<file path="src/types.ts">
+import { Vec2 } from "kaplay";
+
+export type bulletData = {
+	shooter: string;
+	speed: number;
+	position: Vec2;
+	damage: number;
+	dir: Vec2;
+};
+</file>
+
+<file path="index.html">
+<!DOCTYPE html>
+<html>
+<head>
+<title>Overgrown</title>
+</head>
+<body style="overflow:hidden">
+<script src="src/main.ts" type="module"></script>
+</body>
+</html>
+</file>
+
+<file path="public/maps/chunk_prototype.json">
+{ "compressionlevel":-1,
+ "height":10,
+ "infinite":false,
+ "layers":[
+        {
+         "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+         "height":10,
+         "id":1,
+         "name":"platforms",
+         "opacity":1,
+         "type":"tilelayer",
+         "visible":true,
+         "width":10,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":2,
+         "name":"colliders",
+         "objects":[],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }],
+ "nextlayerid":3,
+ "nextobjectid":1,
+ "orientation":"orthogonal",
+ "properties":[
+        {
+         "name":"left_connector",
+         "type":"string",
+         "value":""
+        }, 
+        {
+         "name":"right_connector",
+         "type":"string",
+         "value":""
+        }],
+ "renderorder":"right-down",
+ "tiledversion":"1.11.2",
+ "tileheight":16,
+ "tilesets":[],
+ "tilewidth":16,
+ "type":"map",
+ "version":"1.10",
+ "width":10
+}
+</file>
+
+<file path="public/maps/default_map.json">
+{ "compressionlevel":-1,
+ "height":40,
+ "infinite":false,
+ "layers":[
+        {
+         "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 355, 356, 356, 356, 356, 357, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 395, 396, 396, 396, 396, 397, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 355, 356, 356, 356, 356, 356, 357, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 395, 396, 396, 396, 396, 396, 397, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 355, 356, 356, 357, 355, 356, 356, 357,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 395, 396, 396, 397, 395, 396, 396, 397,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 44, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 355, 356, 356, 357, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 395, 396, 396, 397, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 355, 356, 356, 357, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 395, 396, 396, 397, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 355, 357, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 375, 377, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 375, 377, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 395, 397, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 355, 356, 356, 357, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 395, 396, 396, 397, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 19, 0, 0, 39, 0, 0, 0, 0, 0, 19, 0, 0, 0, 0, 0, 39, 0, 0, 0, 0, 0, 19, 0, 0, 39, 0, 0,
+            65, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 66, 67,
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+         "height":40,
+         "id":1,
+         "name":"platforms",
+         "opacity":1,
+         "type":"tilelayer",
+         "visible":true,
+         "width":30,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":2,
+         "name":"colliders",
+         "objects":[
+                {
+                 "height":32,
+                 "id":2,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":128,
+                 "x":352,
+                 "y":208
+                }, 
+                {
+                 "height":32,
+                 "id":3,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":64,
+                 "x":272,
+                 "y":352
+                }, 
+                {
+                 "height":32,
+                 "id":8,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":128,
+                 "x":352,
+                 "y":208
+                }, 
+                {
+                 "height":32,
+                 "id":15,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":128,
+                 "x":352,
+                 "y":208
+                }, 
+                {
+                 "height":32,
+                 "id":16,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":64,
+                 "x":272,
+                 "y":352
+                }, 
+                {
+                 "height":32,
+                 "id":17,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":64,
+                 "x":80,
+                 "y":384
+                }, 
+                {
+                 "height":64,
+                 "id":18,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":32,
+                 "x":80,
+                 "y":416
+                }, 
+                {
+                 "height":32,
+                 "id":19,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":64,
+                 "x":320,
+                 "y":480
+                }, 
+                {
+                 "height":48,
+                 "id":22,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":480,
+                 "x":0,
+                 "y":592
+                }, 
+                {
+                 "height":32,
+                 "id":24,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":64,
+                 "x":320,
+                 "y":480
+                }, 
+                {
+                 "height":32,
+                 "id":43,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":112,
+                 "x":208,
+                 "y":96
+                }, 
+                {
+                 "height":32,
+                 "id":44,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":96,
+                 "x":64,
+                 "y":32
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":false,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":3,
+         "name":"positions",
+         "objects":[
+                {
+                 "height":0,
+                 "id":26,
+                 "name":"player",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":160,
+                 "y":592
+                }, 
+                {
+                 "height":0,
+                 "id":39,
+                 "name":"enemy",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":416,
+                 "y":208
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":false,
+         "x":0,
+         "y":0
+        }],
+ "nextlayerid":4,
+ "nextobjectid":45,
+ "orientation":"orthogonal",
+ "renderorder":"right-down",
+ "tiledversion":"1.11.2",
+ "tileheight":16,
+ "tilesets":[
+        {
+         "columns":20,
+         "firstgid":1,
+         "image":"..\/..\/..\/tileset\/Tilemap\/monochrome_tilemap_modified.png",
+         "imageheight":320,
+         "imagewidth":320,
+         "margin":0,
+         "name":"monochrome_tilemap_modified",
+         "spacing":0,
+         "tilecount":400,
+         "tileheight":16,
+         "tilewidth":16
+        }],
+ "tilewidth":16,
+ "type":"map",
+ "version":"1.10",
+ "width":30
+}
+</file>
+
+<file path="public/maps/level1/chunk_1.json">
+{ "compressionlevel":-1,
+ "height":10,
+ "infinite":false,
+ "layers":[
+        {
+         "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 228, 229, 230,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 268,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 85, 87, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            85, 86, 87, 0, 0, 0, 0, 0, 0, 0],
+         "height":10,
+         "id":1,
+         "name":"platforms",
+         "opacity":1,
+         "type":"tilelayer",
+         "visible":true,
+         "width":10,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":2,
+         "name":"colliders",
+         "objects":[
+                {
+                 "height":16,
+                 "id":10,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":0,
+                 "y":144
+                }, 
+                {
+                 "height":16,
+                 "id":11,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":112,
+                 "y":16
+                }, 
+                {
+                 "height":16,
+                 "id":12,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":32,
+                 "x":96,
+                 "y":80
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":3,
+         "name":"positions",
+         "objects":[
+                {
+                 "height":0,
+                 "id":13,
+                 "name":"turret",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":16,
+                 "y":16
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }],
+ "nextlayerid":4,
+ "nextobjectid":14,
+ "orientation":"orthogonal",
+ "properties":[
+        {
+         "name":"bottom_connector",
+         "type":"string",
+         "value":"ground"
+        }, 
+        {
+         "name":"left_connector",
+         "type":"string",
+         "value":"ground"
+        }, 
+        {
+         "name":"right_connector",
+         "type":"string",
+         "value":"air_high"
+        }, 
+        {
+         "name":"top_connector",
+         "type":"string",
+         "value":"air_high"
+        }],
+ "renderorder":"right-down",
+ "tiledversion":"1.11.2",
+ "tileheight":16,
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
+ "tilewidth":16,
+ "type":"map",
+ "version":"1.10",
+ "width":10
+}
+</file>
+
+<file path="public/maps/level1/chunk_10.json">
+{ "compressionlevel":-1,
+ "height":10,
+ "infinite":false,
+ "layers":[
+        {
+         "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            355, 357, 0, 0, 0, 0, 0, 0, 0, 0,
+            395, 397, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 85, 86, 87],
+         "height":10,
+         "id":1,
+         "name":"platforms",
+         "opacity":1,
+         "type":"tilelayer",
+         "visible":true,
+         "width":10,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":2,
+         "name":"colliders",
+         "objects":[
+                {
+                 "height":16,
+                 "id":14,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":112,
+                 "y":144
+                }, 
+                {
+                 "height":32,
+                 "id":16,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":32,
+                 "x":0,
+                 "y":16
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":3,
+         "name":"positions",
+         "objects":[
+                {
+                 "height":0,
+                 "id":15,
+                 "name":"flame",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":96,
+                 "y":80
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }],
+ "nextlayerid":4,
+ "nextobjectid":17,
+ "orientation":"orthogonal",
+ "properties":[
+        {
+         "name":"bottom_connector",
+         "type":"string",
+         "value":"ground"
+        }, 
+        {
+         "name":"left_connector",
+         "type":"string",
+         "value":"air_high"
+        }, 
+        {
+         "name":"right_connector",
+         "type":"string",
+         "value":"ground"
+        }, 
+        {
+         "name":"top_connector",
+         "type":"string",
+         "value":"air_high"
+        }],
+ "renderorder":"right-down",
+ "tiledversion":"1.11.2",
+ "tileheight":16,
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
+ "tilewidth":16,
+ "type":"map",
+ "version":"1.10",
+ "width":10
+}
+</file>
+
+<file path="public/maps/level1/chunk_11.json">
+{ "compressionlevel":-1,
+ "height":10,
+ "infinite":false,
+ "layers":[
+        {
+         "data":[230, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            248, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            248, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            248, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            248, 0, 0, 0, 85, 86, 87, 0, 0, 0,
+            248, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            248, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            248, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            248, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            270, 0, 0, 0, 0, 0, 0, 85, 86, 87],
+         "height":10,
+         "id":1,
+         "name":"platforms",
+         "opacity":1,
+         "type":"tilelayer",
+         "visible":true,
+         "width":10,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":2,
+         "name":"colliders",
+         "objects":[
+                {
+                 "height":16,
+                 "id":14,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":112,
+                 "y":144
+                }, 
+                {
+                 "height":160,
+                 "id":15,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":16,
+                 "x":0,
+                 "y":0
+                }, 
+                {
+                 "height":16,
+                 "id":16,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":64,
+                 "y":64
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":3,
+         "name":"positions",
+         "objects":[
+                {
+                 "height":0,
+                 "id":17,
+                 "name":"enemy",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":80,
+                 "y":64
+                }, 
+                {
+                 "height":0,
+                 "id":18,
+                 "name":"crate",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":144,
+                 "y":144
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }],
+ "nextlayerid":4,
+ "nextobjectid":19,
+ "orientation":"orthogonal",
+ "properties":[
+        {
+         "name":"bottom_connector",
+         "type":"string",
+         "value":"ground"
+        }, 
+        {
+         "name":"left_connector",
+         "type":"string",
+         "value":"wall_right"
+        }, 
+        {
+         "name":"right_connector",
+         "type":"string",
+         "value":"ground"
+        }, 
+        {
+         "name":"top_connector",
+         "type":"string",
+         "value":"ground"
+        }],
+ "renderorder":"right-down",
+ "tiledversion":"1.11.2",
+ "tileheight":16,
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
+ "tilewidth":16,
+ "type":"map",
+ "version":"1.10",
+ "width":10
+}
+</file>
+
+<file path="public/maps/level1/chunk_12.json">
+{ "compressionlevel":-1,
+ "height":10,
+ "infinite":false,
+ "layers":[
+        {
+         "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 228,
+            0, 0, 0, 0, 0, 0, 84, 0, 0, 248,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 248,
+            0, 0, 0, 0, 84, 0, 0, 0, 0, 248,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 250,
+            85, 86, 87, 0, 0, 0, 0, 0, 0, 248,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 248,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 250,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 248,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 268],
+         "height":10,
+         "id":1,
+         "name":"platforms",
+         "opacity":1,
+         "type":"tilelayer",
+         "visible":true,
+         "width":10,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":2,
+         "name":"colliders",
+         "objects":[
+                {
+                 "height":16,
+                 "id":16,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":0,
+                 "y":80
+                }, 
+                {
+                 "height":160,
+                 "id":17,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":16,
+                 "x":144,
+                 "y":0
+                }, 
+                {
+                 "height":16,
+                 "id":19,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":16,
+                 "x":96,
+                 "y":16
+                }, 
+                {
+                 "height":16,
+                 "id":20,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":16,
+                 "x":64,
+                 "y":48
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }],
+ "nextlayerid":3,
+ "nextobjectid":21,
+ "orientation":"orthogonal",
+ "properties":[
+        {
+         "name":"bottom_connector",
+         "type":"string",
+         "value":"air_mid"
+        }, 
+        {
+         "name":"left_connector",
+         "type":"string",
+         "value":"air_mid"
+        }, 
+        {
+         "name":"right_connector",
+         "type":"string",
+         "value":"wall_left"
+        }, 
+        {
+         "name":"top_connector",
+         "type":"string",
+         "value":"air_mid"
+        }],
+ "renderorder":"right-down",
+ "tiledversion":"1.11.2",
+ "tileheight":16,
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
+ "tilewidth":16,
+ "type":"map",
+ "version":"1.10",
+ "width":10
+}
+</file>
+
+<file path="public/maps/level1/chunk_13.json">
+{ "compressionlevel":-1,
+ "height":10,
+ "infinite":false,
+ "layers":[
+        {
+         "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            86, 87, 0, 0, 0, 0, 0, 85, 86, 87,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 19, 0, 0, 84, 0, 0, 0,
+            0, 0, 0, 84, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+         "height":10,
+         "id":1,
+         "name":"platforms",
+         "opacity":1,
+         "type":"tilelayer",
+         "visible":true,
+         "width":10,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":2,
+         "name":"colliders",
+         "objects":[
+                {
+                 "height":16,
+                 "id":18,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":32,
+                 "x":0,
+                 "y":16
+                }, 
+                {
+                 "height":16,
+                 "id":19,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":112,
+                 "y":16
+                }, 
+                {
+                 "height":16,
+                 "id":21,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":16,
+                 "x":48,
+                 "y":64
+                }, 
+                {
+                 "height":16,
+                 "id":22,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":16,
+                 "x":96,
+                 "y":48
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }],
+ "nextlayerid":3,
+ "nextobjectid":23,
+ "orientation":"orthogonal",
+ "properties":[
+        {
+         "name":"bottom_connector",
+         "type":"string",
+         "value":"air_high"
+        }, 
+        {
+         "name":"left_connector",
+         "type":"string",
+         "value":"air_high"
+        }, 
+        {
+         "name":"right_connector",
+         "type":"string",
+         "value":"air_high"
+        }, 
+        {
+         "name":"top_connector",
+         "type":"string",
+         "value":"air_high"
+        }],
+ "renderorder":"right-down",
+ "tiledversion":"1.11.2",
+ "tileheight":16,
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
+ "tilewidth":16,
+ "type":"map",
+ "version":"1.10",
+ "width":10
+}
+</file>
+
+<file path="public/maps/level1/chunk_14.json">
+{ "compressionlevel":-1,
+ "height":10,
+ "infinite":false,
+ "layers":[
+        {
+         "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 230, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 248, 0, 0, 0, 0,
+            0, 0, 0, 84, 0, 248, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 248, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 248, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 248, 0, 0, 0, 0,
+            85, 86, 86, 87, 0, 268, 229, 269, 229, 229],
+         "height":10,
+         "id":1,
+         "name":"platforms",
+         "opacity":1,
+         "type":"tilelayer",
+         "visible":true,
+         "width":10,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":2,
+         "name":"colliders",
+         "objects":[
+                {
+                 "height":16,
+                 "id":20,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":64,
+                 "x":0,
+                 "y":144
+                }, 
+                {
+                 "height":16,
+                 "id":21,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":64,
+                 "x":96,
+                 "y":144
+                }, 
+                {
+                 "height":112,
+                 "id":22,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":16,
+                 "x":80,
+                 "y":48
+                }, 
+                {
+                 "height":16,
+                 "id":24,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":16,
+                 "x":48,
+                 "y":80
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":3,
+         "name":"positions",
+         "objects":[
+                {
+                 "height":0,
+                 "id":23,
+                 "name":"crate",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":48,
+                 "y":144
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }],
+ "nextlayerid":4,
+ "nextobjectid":25,
+ "orientation":"orthogonal",
+ "properties":[
+        {
+         "name":"bottom_connector",
+         "type":"string",
+         "value":"ground"
+        }, 
+        {
+         "name":"left_connector",
+         "type":"string",
+         "value":"ground"
+        }, 
+        {
+         "name":"right_connector",
+         "type":"string",
+         "value":"ground"
+        }, 
+        {
+         "name":"top_connector",
+         "type":"string",
+         "value":"ground"
+        }],
+ "renderorder":"right-down",
+ "tiledversion":"1.11.2",
+ "tileheight":16,
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
+ "tilewidth":16,
+ "type":"map",
+ "version":"1.10",
+ "width":10
+}
+</file>
+
+<file path="public/maps/level1/chunk_15.json">
+{ "compressionlevel":-1,
+ "height":10,
+ "infinite":false,
+ "layers":[
+        {
+         "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 85, 86, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            355, 357, 0, 0, 0, 0, 0, 0, 355, 357,
+            395, 397, 0, 0, 0, 0, 0, 0, 395, 397,
+            0, 0, 0, 0, 0, 0, 0, 0, 4, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 7, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+         "height":10,
+         "id":1,
+         "name":"platforms",
+         "opacity":1,
+         "type":"tilelayer",
+         "visible":true,
+         "width":10,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":2,
+         "name":"colliders",
+         "objects":[
+                {
+                 "height":16,
+                 "id":25,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":32,
+                 "x":64,
+                 "y":32
+                }, 
+                {
+                 "height":32,
+                 "id":27,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":32,
+                 "x":0,
+                 "y":80
+                }, 
+                {
+                 "height":32,
+                 "id":28,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":32,
+                 "x":128,
+                 "y":80
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":3,
+         "name":"positions",
+         "objects":[
+                {
+                 "height":0,
+                 "id":26,
+                 "name":"turret",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":80,
+                 "y":112
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }],
+ "nextlayerid":4,
+ "nextobjectid":29,
+ "orientation":"orthogonal",
+ "properties":[
+        {
+         "name":"bottom_connector",
+         "type":"string",
+         "value":"air_mid"
+        }, 
+        {
+         "name":"left_connector",
+         "type":"string",
+         "value":"air_mid"
+        }, 
+        {
+         "name":"right_connector",
+         "type":"string",
+         "value":"air_mid"
+        }, 
+        {
+         "name":"top_connector",
+         "type":"string",
+         "value":"air_mid"
+        }],
+ "renderorder":"right-down",
+ "tiledversion":"1.11.2",
+ "tileheight":16,
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
+ "tilewidth":16,
+ "type":"map",
+ "version":"1.10",
+ "width":10
+}
+</file>
+
+<file path="public/maps/level1/chunk_16.json">
+{ "compressionlevel":-1,
+ "height":10,
+ "infinite":false,
+ "layers":[
+        {
+         "data":[0, 0, 0, 0, 0, 250, 0, 0, 0, 0,
+            85, 86, 87, 0, 0, 248, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 268, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 85, 86, 87,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 85, 86, 86, 86, 87, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+         "height":10,
+         "id":1,
+         "name":"platforms",
+         "opacity":1,
+         "type":"tilelayer",
+         "visible":true,
+         "width":10,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":2,
+         "name":"colliders",
+         "objects":[
+                {
+                 "height":16,
+                 "id":26,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":0,
+                 "y":16
+                }, 
+                {
+                 "height":16,
+                 "id":27,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":112,
+                 "y":80
+                }, 
+                {
+                 "height":48,
+                 "id":30,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":16,
+                 "x":80,
+                 "y":0
+                }, 
+                {
+                 "height":16,
+                 "id":34,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":80,
+                 "x":32,
+                 "y":112
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":3,
+         "name":"positions",
+         "objects":[
+                {
+                 "height":0,
+                 "id":35,
+                 "name":"enemy",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":64,
+                 "y":112
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }],
+ "nextlayerid":4,
+ "nextobjectid":36,
+ "orientation":"orthogonal",
+ "properties":[
+        {
+         "name":"bottom_connector",
+         "type":"string",
+         "value":"air_high"
+        }, 
+        {
+         "name":"left_connector",
+         "type":"string",
+         "value":"air_high"
+        }, 
+        {
+         "name":"right_connector",
+         "type":"string",
+         "value":"air_mid"
+        }, 
+        {
+         "name":"top_connector",
+         "type":"string",
+         "value":"air_mid"
+        }],
+ "renderorder":"right-down",
+ "tiledversion":"1.11.2",
+ "tileheight":16,
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
+ "tilewidth":16,
+ "type":"map",
+ "version":"1.10",
+ "width":10
+}
+</file>
+
+<file path="public/maps/level1/chunk_17.json">
+{ "compressionlevel":-1,
+ "height":10,
+ "infinite":false,
+ "layers":[
+        {
+         "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            85, 86, 87, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 85, 86,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 85, 86, 86, 87],
+         "height":10,
+         "id":1,
+         "name":"platforms",
+         "opacity":1,
+         "type":"tilelayer",
+         "visible":true,
+         "width":10,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":2,
+         "name":"colliders",
+         "objects":[
+                {
+                 "height":16,
+                 "id":28,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":0,
+                 "y":16
+                }, 
+                {
+                 "height":16,
+                 "id":29,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":64,
+                 "x":96,
+                 "y":144
+                }, 
+                {
+                 "height":16,
+                 "id":31,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":32,
+                 "x":128,
+                 "y":48
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":3,
+         "name":"positions",
+         "objects":[
+                {
+                 "height":0,
+                 "id":30,
+                 "name":"flame",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":80,
+                 "y":80
+                }, 
+                {
+                 "height":0,
+                 "id":32,
+                 "name":"enemy",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":128,
+                 "y":144
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }],
+ "nextlayerid":4,
+ "nextobjectid":33,
+ "orientation":"orthogonal",
+ "properties":[
+        {
+         "name":"bottom_connector",
+         "type":"string",
+         "value":"air_high"
+        }, 
+        {
+         "name":"left_connector",
+         "type":"string",
+         "value":"air_high"
+        }, 
+        {
+         "name":"right_connector",
+         "type":"string",
+         "value":"ground"
+        }, 
+        {
+         "name":"top_connector",
+         "type":"string",
+         "value":"ground"
+        }],
+ "renderorder":"right-down",
+ "tiledversion":"1.11.2",
+ "tileheight":16,
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
+ "tilewidth":16,
+ "type":"map",
+ "version":"1.10",
+ "width":10
+}
+</file>
+
+<file path="public/maps/level1/chunk_18.json">
+{ "compressionlevel":-1,
+ "height":10,
+ "infinite":false,
+ "layers":[
+        {
+         "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            86, 87, 0, 0, 0, 0, 0, 0, 85, 86,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 85, 86, 86, 87, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+         "height":10,
+         "id":1,
+         "name":"platforms",
+         "opacity":1,
+         "type":"tilelayer",
+         "visible":true,
+         "width":10,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":2,
+         "name":"colliders",
+         "objects":[
+                {
+                 "height":16,
+                 "id":30,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":32,
+                 "x":0,
+                 "y":16
+                }, 
+                {
+                 "height":16,
+                 "id":31,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":32,
+                 "x":128,
+                 "y":16
+                }, 
+                {
+                 "height":16,
+                 "id":34,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":64,
+                 "x":48,
+                 "y":80
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":3,
+         "name":"positions",
+         "objects":[
+                {
+                 "height":0,
+                 "id":35,
+                 "name":"crate",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":96,
+                 "y":80
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }],
+ "nextlayerid":4,
+ "nextobjectid":36,
+ "orientation":"orthogonal",
+ "properties":[
+        {
+         "name":"bottom_connector",
+         "type":"string",
+         "value":"air_high"
+        }, 
+        {
+         "name":"left_connector",
+         "type":"string",
+         "value":"air_high"
+        }, 
+        {
+         "name":"right_connector",
+         "type":"string",
+         "value":"air_high"
+        }, 
+        {
+         "name":"top_connector",
+         "type":"string",
+         "value":"air_high"
+        }],
+ "renderorder":"right-down",
+ "tiledversion":"1.11.2",
+ "tileheight":16,
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
+ "tilewidth":16,
+ "type":"map",
+ "version":"1.10",
+ "width":10
+}
+</file>
+
+<file path="public/maps/level1/chunk_19.json">
+{ "compressionlevel":-1,
+ "height":10,
+ "infinite":false,
+ "layers":[
+        {
+         "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 19,
+            0, 0, 0, 0, 0, 0, 0, 85, 86, 87,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 17, 0, 0, 0, 0, 0, 0,
+            0, 0, 85, 86, 86, 87, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+         "height":10,
+         "id":1,
+         "name":"platforms",
+         "opacity":1,
+         "type":"tilelayer",
+         "visible":true,
+         "width":10,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":2,
+         "name":"colliders",
+         "objects":[
+                {
+                 "height":16,
+                 "id":35,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":112,
+                 "y":80
+                }, 
+                {
+                 "height":16,
+                 "id":37,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":64,
+                 "x":32,
+                 "y":128
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":3,
+         "name":"positions",
+         "objects":[
+                {
+                 "height":0,
+                 "id":38,
+                 "name":"crate",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":80,
+                 "y":128
+                }, 
+                {
+                 "height":0,
+                 "id":39,
+                 "name":"turret",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":144,
+                 "y":112
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }],
+ "nextlayerid":4,
+ "nextobjectid":40,
+ "orientation":"orthogonal",
+ "properties":[
+        {
+         "name":"bottom_connector",
+         "type":"string",
+         "value":"air_mid"
+        }, 
+        {
+         "name":"left_connector",
+         "type":"string",
+         "value":"wall_right"
+        }, 
+        {
+         "name":"right_connector",
+         "type":"string",
+         "value":"air_mid"
+        }, 
+        {
+         "name":"top_connector",
+         "type":"string",
+         "value":"air_mid"
+        }],
+ "renderorder":"right-down",
+ "tiledversion":"1.11.2",
+ "tileheight":16,
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
+ "tilewidth":16,
+ "type":"map",
+ "version":"1.10",
+ "width":10
+}
+</file>
+
+<file path="public/maps/level1/chunk_2.json">
+{ "compressionlevel":-1,
+ "height":10,
+ "infinite":false,
+ "layers":[
+        {
+         "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            85, 86, 87, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 85, 86, 86, 86, 87, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 85, 86, 87,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+         "height":10,
+         "id":1,
+         "name":"platforms",
+         "opacity":1,
+         "type":"tilelayer",
+         "visible":true,
+         "width":10,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":2,
+         "name":"colliders",
+         "objects":[
+                {
+                 "height":16,
+                 "id":6,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":0,
+                 "y":16
+                }, 
+                {
+                 "height":16,
+                 "id":7,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":112,
+                 "y":80
+                }, 
+                {
+                 "height":16,
+                 "id":13,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":80,
+                 "x":48,
+                 "y":48
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":3,
+         "name":"positions",
+         "objects":[
+                {
+                 "height":0,
+                 "id":14,
+                 "name":"enemy",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":96,
+                 "y":48
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }],
+ "nextlayerid":4,
+ "nextobjectid":15,
+ "orientation":"orthogonal",
+ "properties":[
+        {
+         "name":"bottom_connector",
+         "type":"string",
+         "value":"air_mid"
+        }, 
+        {
+         "name":"left_connector",
+         "type":"string",
+         "value":"air_high"
+        }, 
+        {
+         "name":"right_connector",
+         "type":"string",
+         "value":"air_mid"
+        }, 
+        {
+         "name":"top_connector",
+         "type":"string",
+         "value":"air_high"
+        }],
+ "renderorder":"right-down",
+ "tiledversion":"1.11.2",
+ "tileheight":16,
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
+ "tilewidth":16,
+ "type":"map",
+ "version":"1.10",
+ "width":10
+}
+</file>
+
+<file path="public/maps/level1/chunk_20.json">
+{ "compressionlevel":-1,
+ "height":10,
+ "infinite":false,
+ "layers":[
+        {
+         "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 228,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 248,
+            0, 0, 0, 0, 0, 85, 86, 87, 0, 248,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 250,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 248,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 248,
+            85, 86, 86, 86, 86, 86, 86, 86, 87, 268],
+         "height":10,
+         "id":1,
+         "name":"platforms",
+         "opacity":1,
+         "type":"tilelayer",
+         "visible":true,
+         "width":10,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":2,
+         "name":"colliders",
+         "objects":[
+                {
+                 "height":112,
+                 "id":37,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":16,
+                 "x":144,
+                 "y":48
+                }, 
+                {
+                 "height":16,
+                 "id":38,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":80,
+                 "y":80
+                }, 
+                {
+                 "height":16,
+                 "id":40,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":144,
+                 "x":0,
+                 "y":144
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":3,
+         "name":"positions",
+         "objects":[
+                {
+                 "height":0,
+                 "id":39,
+                 "name":"crate",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":96,
+                 "y":144
+                }, 
+                {
+                 "height":0,
+                 "id":41,
+                 "name":"enemy",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":112,
+                 "y":80
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }],
+ "nextlayerid":4,
+ "nextobjectid":42,
+ "orientation":"orthogonal",
+ "properties":[
+        {
+         "name":"bottom_connector",
+         "type":"string",
+         "value":"ground"
+        }, 
+        {
+         "name":"left_connector",
+         "type":"string",
+         "value":"ground"
+        }, 
+        {
+         "name":"right_connector",
+         "type":"string",
+         "value":"wall_left"
+        }, 
+        {
+         "name":"top_connector",
+         "type":"string",
+         "value":"air_mid"
+        }],
+ "renderorder":"right-down",
+ "tiledversion":"1.11.2",
+ "tileheight":16,
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
+ "tilewidth":16,
+ "type":"map",
+ "version":"1.10",
+ "width":10
+}
+</file>
+
+<file path="public/maps/level1/chunk_21.json">
+{ "compressionlevel":-1,
+ "height":10,
+ "infinite":false,
+ "layers":[
+        {
+         "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            85, 86, 87, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 85, 86, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 85, 86,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+         "height":10,
+         "id":1,
+         "name":"platforms",
+         "opacity":1,
+         "type":"tilelayer",
+         "visible":true,
+         "width":10,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":2,
+         "name":"colliders",
+         "objects":[
+                {
+                 "height":16,
+                 "id":38,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":0,
+                 "y":16
+                }, 
+                {
+                 "height":16,
+                 "id":39,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":32,
+                 "x":128,
+                 "y":80
+                }, 
+                {
+                 "height":16,
+                 "id":40,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":32,
+                 "x":80,
+                 "y":48
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }],
+ "nextlayerid":3,
+ "nextobjectid":41,
+ "orientation":"orthogonal",
+ "properties":[
+        {
+         "name":"bottom_connector",
+         "type":"string",
+         "value":"air_mid"
+        }, 
+        {
+         "name":"left_connector",
+         "type":"string",
+         "value":"air_high"
+        }, 
+        {
+         "name":"right_connector",
+         "type":"string",
+         "value":"air_mid"
+        }, 
+        {
+         "name":"top_connector",
+         "type":"string",
+         "value":"air_high"
+        }],
+ "renderorder":"right-down",
+ "tiledversion":"1.11.2",
+ "tileheight":16,
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
+ "tilewidth":16,
+ "type":"map",
+ "version":"1.10",
+ "width":10
+}
+</file>
+
+<file path="public/maps/level1/chunk_3.json">
+{ "compressionlevel":-1,
+ "height":10,
+ "infinite":false,
+ "layers":[
+        {
+         "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 39, 0, 0, 0, 0, 0, 0, 0, 19,
+            85, 86, 87, 0, 0, 0, 0, 85, 86, 87],
+         "height":10,
+         "id":1,
+         "name":"platforms",
+         "opacity":1,
+         "type":"tilelayer",
+         "visible":true,
+         "width":10,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":2,
+         "name":"colliders",
+         "objects":[
+                {
+                 "height":16,
+                 "id":7,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":0,
+                 "y":144
+                }, 
+                {
+                 "height":16,
+                 "id":8,
+                 "name":"",
+                 "properties":[
+                        {
+                         "name":"left_connector",
+                         "type":"string",
+                         "value":""
+                        }, 
+                        {
+                         "name":"right_connector",
+                         "type":"string",
+                         "value":""
+                        }],
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":112,
+                 "y":144
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":3,
+         "name":"positions",
+         "objects":[
+                {
+                 "height":0,
+                 "id":11,
+                 "name":"flame",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":80,
+                 "y":80
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }],
+ "nextlayerid":4,
+ "nextobjectid":12,
+ "orientation":"orthogonal",
+ "properties":[
+        {
+         "name":"bottom_connector",
+         "type":"string",
+         "value":"ground"
+        }, 
+        {
+         "name":"left_connector",
+         "type":"string",
+         "value":"ground"
+        }, 
+        {
+         "name":"right_connector",
+         "type":"string",
+         "value":"ground"
+        }, 
+        {
+         "name":"top_connector",
+         "type":"string",
+         "value":"ground"
+        }],
+ "renderorder":"right-down",
+ "tiledversion":"1.11.2",
+ "tileheight":16,
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
+ "tilewidth":16,
+ "type":"map",
+ "version":"1.10",
+ "width":10
+}
+</file>
+
+<file path="public/maps/level1/chunk_4.json">
+{ "compressionlevel":-1,
+ "height":10,
+ "infinite":false,
+ "layers":[
+        {
+         "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 355, 357, 0, 0,
+            0, 0, 0, 0, 0, 0, 395, 397, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            85, 86, 87, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+         "height":10,
+         "id":1,
+         "name":"platforms",
+         "opacity":1,
+         "type":"tilelayer",
+         "visible":true,
+         "width":10,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":2,
+         "name":"colliders",
+         "objects":[
+                {
+                 "height":16,
+                 "id":3,
+                 "name":"",
+                 "properties":[
+                        {
+                         "name":"left_connector",
+                         "type":"string",
+                         "value":"air_mid"
+                        }, 
+                        {
+                         "name":"right_connector",
+                         "type":"string",
+                         "value":"wall_right"
+                        }],
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":0,
+                 "y":80
+                }, 
+                {
+                 "height":32,
+                 "id":8,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":32,
+                 "x":96,
+                 "y":16
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }],
+ "nextlayerid":3,
+ "nextobjectid":9,
+ "orientation":"orthogonal",
+ "properties":[
+        {
+         "name":"bottom_connector",
+         "type":"string",
+         "value":"air_mid"
+        }, 
+        {
+         "name":"left_connector",
+         "type":"string",
+         "value":"air_mid"
+        }, 
+        {
+         "name":"right_connector",
+         "type":"string",
+         "value":"wall_right"
+        }, 
+        {
+         "name":"top_connector",
+         "type":"string",
+         "value":"air_mid"
+        }],
+ "renderorder":"right-down",
+ "tiledversion":"1.11.2",
+ "tileheight":16,
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
+ "tilewidth":16,
+ "type":"map",
+ "version":"1.10",
+ "width":10
+}
+</file>
+
+<file path="public/maps/level1/chunk_5.json">
+{ "compressionlevel":-1,
+ "height":10,
+ "infinite":false,
+ "layers":[
+        {
+         "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 355, 356, 356, 357,
+            85, 86, 87, 0, 0, 0, 375, 376, 376, 377,
+            0, 0, 0, 0, 0, 0, 395, 396, 396, 397,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+         "height":10,
+         "id":1,
+         "name":"platforms",
+         "opacity":1,
+         "type":"tilelayer",
+         "visible":true,
+         "width":10,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":2,
+         "name":"colliders",
+         "objects":[
+                {
+                 "height":16,
+                 "id":7,
+                 "name":"",
+                 "properties":[
+                        {
+                         "name":"left_connector",
+                         "type":"string",
+                         "value":"air_mid"
+                        }, 
+                        {
+                         "name":"right_connector",
+                         "type":"string",
+                         "value":"air_mid"
+                        }],
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":0,
+                 "y":64
+                }, 
+                {
+                 "height":48,
+                 "id":10,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":64,
+                 "x":96,
+                 "y":48
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":3,
+         "name":"positions",
+         "objects":[
+                {
+                 "height":0,
+                 "id":9,
+                 "name":"enemy",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":128,
+                 "y":48
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }],
+ "nextlayerid":4,
+ "nextobjectid":11,
+ "orientation":"orthogonal",
+ "properties":[
+        {
+         "name":"bottom_connector",
+         "type":"string",
+         "value":"air_mid"
+        }, 
+        {
+         "name":"left_connector",
+         "type":"string",
+         "value":"air_mid"
+        }, 
+        {
+         "name":"right_connector",
+         "type":"string",
+         "value":"air_mid"
+        }, 
+        {
+         "name":"top_connector",
+         "type":"string",
+         "value":"air_mid"
+        }],
+ "renderorder":"right-down",
+ "tiledversion":"1.11.2",
+ "tileheight":16,
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
+ "tilewidth":16,
+ "type":"map",
+ "version":"1.10",
+ "width":10
+}
+</file>
+
+<file path="public/maps/level1/chunk_6.json">
+{ "compressionlevel":-1,
+ "height":10,
+ "infinite":false,
+ "layers":[
+        {
+         "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 85, 86, 87,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            85, 86, 87, 0, 0, 0, 0, 0, 0, 0],
+         "height":10,
+         "id":1,
+         "name":"platforms",
+         "opacity":1,
+         "type":"tilelayer",
+         "visible":true,
+         "width":10,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":2,
+         "name":"colliders",
+         "objects":[
+                {
+                 "height":16,
+                 "id":11,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":0,
+                 "y":144
+                }, 
+                {
+                 "height":16,
+                 "id":12,
+                 "name":"",
+                 "properties":[
+                        {
+                         "name":"left_connector",
+                         "type":"string",
+                         "value":"ground"
+                        }, 
+                        {
+                         "name":"right_connector",
+                         "type":"string",
+                         "value":"air_mid"
+                        }],
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":112,
+                 "y":80
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":3,
+         "name":"positions",
+         "objects":[
+                {
+                 "height":0,
+                 "id":15,
+                 "name":"turret",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":32,
+                 "y":32
+                }, 
+                {
+                 "height":0,
+                 "id":16,
+                 "name":"crate",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":32,
+                 "y":144
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }],
+ "nextlayerid":4,
+ "nextobjectid":17,
+ "orientation":"orthogonal",
+ "properties":[
+        {
+         "name":"bottom_connector",
+         "type":"string",
+         "value":"ground"
+        }, 
+        {
+         "name":"left_connector",
+         "type":"string",
+         "value":"ground"
+        }, 
+        {
+         "name":"right_connector",
+         "type":"string",
+         "value":"air_mid"
+        }, 
+        {
+         "name":"top_connector",
+         "type":"string",
+         "value":"air_mid"
+        }],
+ "renderorder":"right-down",
+ "tiledversion":"1.11.2",
+ "tileheight":16,
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
+ "tilewidth":16,
+ "type":"map",
+ "version":"1.10",
+ "width":10
+}
+</file>
+
+<file path="public/maps/level1/chunk_7.json">
+{ "compressionlevel":-1,
+ "height":10,
+ "infinite":false,
+ "layers":[
+        {
+         "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 276, 278, 0, 0, 0, 0,
+            0, 0, 0, 0, 296, 298, 0, 0, 0, 0,
+            0, 39, 0, 0, 296, 298, 277, 278, 0, 0,
+            85, 86, 87, 0, 296, 298, 317, 318, 0, 0,
+            0, 0, 0, 0, 296, 298, 0, 0, 0, 0,
+            0, 0, 0, 0, 296, 298, 0, 0, 0, 0,
+            0, 0, 0, 0, 316, 318, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 85, 86, 87],
+         "height":10,
+         "id":1,
+         "name":"platforms",
+         "opacity":1,
+         "type":"tilelayer",
+         "visible":true,
+         "width":10,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":2,
+         "name":"colliders",
+         "objects":[
+                {
+                 "height":16,
+                 "id":1,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":0,
+                 "y":80
+                }, 
+                {
+                 "height":16,
+                 "id":2,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":112,
+                 "y":144
+                }, 
+                {
+                 "height":112,
+                 "id":3,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":32,
+                 "x":64,
+                 "y":32
+                }, 
+                {
+                 "height":32,
+                 "id":7,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":32,
+                 "x":96,
+                 "y":64
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":3,
+         "name":"positions",
+         "objects":[],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }],
+ "nextlayerid":4,
+ "nextobjectid":9,
+ "orientation":"orthogonal",
+ "properties":[
+        {
+         "name":"bottom_connector",
+         "type":"string",
+         "value":"ground"
+        }, 
+        {
+         "name":"left_connector",
+         "type":"string",
+         "value":"air_mid"
+        }, 
+        {
+         "name":"right_connector",
+         "type":"string",
+         "value":"ground"
+        }, 
+        {
+         "name":"top_connector",
+         "type":"string",
+         "value":"air_mid"
+        }],
+ "renderorder":"right-down",
+ "tiledversion":"1.11.2",
+ "tileheight":16,
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
+ "tilewidth":16,
+ "type":"map",
+ "version":"1.10",
+ "width":10
+}
+</file>
+
+<file path="public/maps/level1/chunk_8.json">
+{ "compressionlevel":-1,
+ "height":10,
+ "infinite":false,
+ "layers":[
+        {
+         "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 85, 86, 86, 87, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 19,
+            0, 0, 0, 0, 0, 0, 0, 85, 86, 87,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+         "height":10,
+         "id":1,
+         "name":"platforms",
+         "opacity":1,
+         "type":"tilelayer",
+         "visible":true,
+         "width":10,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":2,
+         "name":"colliders",
+         "objects":[
+                {
+                 "height":16,
+                 "id":8,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":112,
+                 "y":80
+                }, 
+                {
+                 "height":16,
+                 "id":10,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":64,
+                 "x":32,
+                 "y":32
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":3,
+         "name":"positions",
+         "objects":[
+                {
+                 "height":0,
+                 "id":11,
+                 "name":"enemy",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":64,
+                 "y":32
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }],
+ "nextlayerid":4,
+ "nextobjectid":12,
+ "orientation":"orthogonal",
+ "properties":[
+        {
+         "name":"bottom_connector",
+         "type":"string",
+         "value":"air_mid"
+        }, 
+        {
+         "name":"left_connector",
+         "type":"string",
+         "value":"wall_left"
+        }, 
+        {
+         "name":"right_connector",
+         "type":"string",
+         "value":"air_mid"
+        }, 
+        {
+         "name":"top_connector",
+         "type":"string",
+         "value":"air_mid"
+        }],
+ "renderorder":"right-down",
+ "tiledversion":"1.11.2",
+ "tileheight":16,
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
+ "tilewidth":16,
+ "type":"map",
+ "version":"1.10",
+ "width":10
+}
+</file>
+
+<file path="public/maps/level1/chunk_9.json">
+{ "compressionlevel":-1,
+ "height":10,
+ "infinite":false,
+ "layers":[
+        {
+         "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 85, 86, 87,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            355, 356, 356, 357, 0, 0, 0, 0, 0, 0,
+            395, 396, 396, 397, 0, 0, 0, 0, 0, 0,
+            0, 0, 7, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+         "height":10,
+         "id":1,
+         "name":"platforms",
+         "opacity":1,
+         "type":"tilelayer",
+         "visible":true,
+         "width":10,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":2,
+         "name":"colliders",
+         "objects":[
+                {
+                 "height":16,
+                 "id":11,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":48,
+                 "x":112,
+                 "y":16
+                }, 
+                {
+                 "height":32,
+                 "id":13,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":64,
+                 "x":0,
+                 "y":80
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":3,
+         "name":"positions",
+         "objects":[
+                {
+                 "height":0,
+                 "id":14,
+                 "name":"crate",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":48,
+                 "y":80
+                }, 
+                {
+                 "height":0,
+                 "id":15,
+                 "name":"turret",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":128,
+                 "y":80
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }],
+ "nextlayerid":4,
+ "nextobjectid":16,
+ "orientation":"orthogonal",
+ "properties":[
+        {
+         "name":"bottom_connector",
+         "type":"string",
+         "value":"air_mid"
+        }, 
+        {
+         "name":"left_connector",
+         "type":"string",
+         "value":"air_mid"
+        }, 
+        {
+         "name":"right_connector",
+         "type":"string",
+         "value":"air_high"
+        }, 
+        {
+         "name":"top_connector",
+         "type":"string",
+         "value":"air_high"
+        }],
+ "renderorder":"right-down",
+ "tiledversion":"1.11.2",
+ "tileheight":16,
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
+ "tilewidth":16,
+ "type":"map",
+ "version":"1.10",
+ "width":10
+}
+</file>
+
+<file path="README.md">
+# Folder structure
+
+- `src` - source code for your kaplay project
+- `dist` - distribution folder, contains your index.html, built js bundle and static assets
+- `src-tauri` - tauri project folder, contains tauri config file, icons, rust source if you need native code
+
+## Development
+
+```sh
+$ npm run dev
+```
+
+will start a dev server at http://localhost:8000
+
+## Distribution
+
+```sh
+$ npm run build
+```
+
+will build your js files into `dist/`
+
+```sh
+$ npm run zip
+```
+
+will build your game and package into a .zip file, you can upload to your server or itch.io / newground etc.
+
+
+## Desktop
+
+This project uses tauri for desktop builds, you have to have `rust` installed on your system for desktop to work, check out [tauri setup guide](https://tauri.app/v1/guides/getting-started/prerequisites/)
+
+For tauri native APIs look [here](https://tauri.app/v1/api/js/)
+
+```sh
+$ npm run dev:desktop
+```
+
+will start the dev server and a native window that servers content from that dev server
+
+```sh
+$ npm run build:desktop
+```
+
+will create distributable native app package
+</file>
+
+<file path="src-tauri/.gitignore">
+# Generated by Cargo
+# will have compiled files and executables
+/target/
+</file>
+
+<file path="src-tauri/build.rs">
+fn main() {
+  tauri_build::build()
+}
+</file>
+
+<file path="src-tauri/Cargo.toml">
+[package]
+name = "app"
+version = "0.1.0"
+description = "A Tauri App"
+authors = ["you"]
+license = ""
+repository = ""
+default-run = "app"
+edition = "2021"
+rust-version = "1.60"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[build-dependencies]
+tauri-build = { version = "1.5.5" }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+tauri = { version = "1.8.1" }
+
+[features]
+# this feature is used for production builds or when `devPath` points to the filesystem and the built-in dev server is disabled.
+# If you use cargo directly instead of tauri's cli you can use this feature flag to switch between tauri's `dev` and `build` modes.
+# DO NOT REMOVE!!
+custom-protocol = [ "tauri/custom-protocol" ]
+</file>
+
+<file path="src-tauri/src/main.rs">
+// Prevents additional console window on Windows in release, DO NOT REMOVE!!
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+fn main() {
+  tauri::Builder::default()
+    .run(tauri::generate_context!())
+    .expect("error while running tauri application");
+}
+</file>
+
+<file path="src-tauri/tauri.conf.json">
+{
+	"$schema": "../node_modules/@tauri-apps/cli/schema.json",
+	"build": {
+		"beforeBuildCommand": "npm run build",
+		"beforeDevCommand": "npm run dev",
+		"devPath": "http://localhost:8000",
+		"distDir": "../dist"
+	},
+	"package": {
+		"productName": "Overgrown",
+		"version": "0.1.0"
+	},
+	"tauri": {
+		"allowlist": {
+			"all": false
+		},
+		"bundle": {
+			"active": true,
+			"category": "DeveloperTool",
+			"copyright": "",
+			"deb": {
+				"depends": []
+			},
+			"externalBin": [],
+			"icon": [
+				"icons/32x32.png",
+				"icons/128x128.png",
+				"icons/128x128@2x.png",
+				"icons/icon.icns",
+				"icons/icon.ico"
+			],
+			"identifier": "com.kaplay.dev",
+			"longDescription": "",
+			"macOS": {
+				"entitlements": null,
+				"exceptionDomain": "",
+				"frameworks": [],
+				"providerShortName": null,
+				"signingIdentity": null
+			},
+			"resources": [],
+			"shortDescription": "",
+			"targets": "all",
+			"windows": {
+				"certificateThumbprint": null,
+				"digestAlgorithm": "sha256",
+				"timestampUrl": ""
+			}
+		},
+		"security": {
+			"csp": null
+		},
+		"updater": {
+			"active": false
+		},
+		"windows": [
+			{
+				"fullscreen": false,
+				"height": 600,
+				"resizable": true,
+				"title": "Overgrown",
+				"width": 800
+			}
+		]
+	}
+}
+</file>
+
+<file path="src/assets.ts">
+loadRoot("./"); // A good idea for Itch.io publishing later
+loadSprite("bean", "sprites/player.png").onError((err) => {
+	debug.log(err);
+});
+
+loadSprite("default_map", "maps/default_map.png");
+
+for (let i = 1; i < 22; i++) {
+	loadSprite(`chunk_${i}`, `maps/chunk_${i}.png`);
+}
+
+loadSprite("tileset", "tileset/tilemap.png", {
+	// Tell Kaplay the dimensions of one tile in the grid
+	sliceX: 20,
+	sliceY: 20,
+	// Define all animations here
+	anims: {
+		// name the animations "enemy_move" and "turret_idle"
+		player_jump: 303,
+		player_move: { from: 304, to: 305, speed: 4, loop: true },
+		enemy_move: { from: 340, to: 341, speed: 4, loop: true },
+		turret_idle: { from: 380, to: 381, speed: 2, loop: true }, // Frame 401 is out of bounds, using 380-381
+	},
+});
+</file>
+
+<file path="src/components.ts">
+import { GameObj } from "kaplay";
+
+export function spin(speed: number = 1200) {
+	let spinning = false;
+	return {
+		require: ["rotate"],
+		update() {
+			if (!spinning) {
+				return;
+			}
+			this.angle -= speed * dt();
+			if (this.angle <= -360) {
+				spinning = false;
+				this.angle = 0;
+			}
+		},
+		spin() {
+			spinning = true;
+		},
+	};
+}
+
+export function platformPatrol(speed: number = 3000) {
+	return {
+		id: "patrol",
+		require: ["pos", "area", "sprite"],
+		dir: 1,
+		probe: null,
+
+		add() {
+			this.probe = this.add([
+				rect(4, 4),
+				area({ collisionIgnore: ["player", "enemy", "bullet", "probe"] }),
+				anchor(vec2(4, -3)),
+				opacity(0),
+				"probe",
+				{
+					isOverGround: false,
+				},
+			]);
+
+			this.probe.onCollideUpdate("ground", () => {
+				this.probe.isOverGround = true;
+			});
+
+			this.probe.onCollideEnd("ground", () => {
+				this.probe.isOverGround = false;
+			});
+
+			this.probe.on("collide", (obj, col) => {
+				if (col.isLeft()) {
+					this.dir = 1;
+				} else if (col.isRight()) {
+					this.dir = -1;
+				}
+			});
+		},
+		update() {
+			//debug.log(this.dir, this.probe.isOverGround);
+			if (!this.probe.isOverGround) {
+				this.dir *= -1;
+			}
+
+			if (this.dir > 0) {
+				this.probe.anchor = vec2(vec2(-8, -5));
+				this.flipX = false;
+			} else {
+				this.probe.anchor = vec2(vec2(8, -5));
+				this.flipX = true;
+			}
+
+			this.move(speed * this.dir * dt(), 0);
+		},
+	};
+}
+
+export function flickerable() {
+	let isFlickering = false;
+
+	return {
+		id: "flickerable",
+		require: ["opacity"],
+
+		flicker(duration: number) {
+			if (isFlickering) {
+				return;
+			}
+
+			isFlickering = true;
+
+			const flickerLoop = loop(0.05, () => {
+				this.opacity = this.opacity === 1 ? 0 : 1;
+			});
+
+			wait(duration, () => {
+				flickerLoop.cancel();
+				this.opacity = 1;
+				isFlickering = false;
+			});
+		},
+	};
+}
+
+export function bounce() {
+	let bouncing = false;
+	let timer = 0;
+	return {
+		id: "bounce",
+		require: ["scale"],
+		update() {
+			if (bouncing) {
+				timer += dt() * 20;
+				const w = Math.sin(timer) * 0.1;
+				if (w < 0) {
+					bouncing = false;
+					timer = 0;
+				} else {
+					this.scale = vec2(1 + w);
+				}
+			}
+		},
+		bounce() {
+			bouncing = true;
+		},
+	};
+}
+</file>
+
+<file path="src/gameData/levels/level1_manifest.ts">
+export const defaultStartMapPath = "default_map.json";
+
+export const level1Chunks = [
+	"level1/chunk_1.json",
+	"level1/chunk_2.json",
+	"level1/chunk_3.json",
+	"level1/chunk_4.json",
+	"level1/chunk_5.json",
+	"level1/chunk_6.json",
+	"level1/chunk_7.json",
+	"level1/chunk_8.json",
+	"level1/chunk_9.json",
+	"level1/chunk_10.json",
+	"level1/chunk_11.json",
+	"level1/chunk_12.json",
+	"level1/chunk_13.json",
+	"level1/chunk_14.json",
+	"level1/chunk_15.json",
+	"level1/chunk_16.json",
+	"level1/chunk_17.json",
+	"level1/chunk_18.json",
+	"level1/chunk_19.json",
+	"level1/chunk_20.json",
+	"level1/chunk_21.json",
+];
+</file>
+
+<file path="src/scenes/loader.ts">
+import {
+	defaultStartMapPath,
+	level1Chunks,
+} from "../gameData/levels/level1_manifest";
+import { spawnManager } from "../utils";
+import * as tiled from "@kayahr/tiled";
+
+export const chunkCache = new Map<string, tiled.Map>();
+
+scene("loader", async () => {
+	// clear previous state
+	chunkCache.clear();
+	spawnManager.reset();
+	//loading message for loading all map data
+	add([
+		text("Loading chunks..."),
+		anchor("center"),
+		pos(width() / 2, height() / 2),
+	]);
+
+	const mapsToLoad = [defaultStartMapPath, ...level1Chunks];
+
+	const loadPromises = mapsToLoad.map(async (path) => {
+		try {
+			const response = await fetch(`./maps/${path}`);
+			if (!response.ok) {
+				throw new Error(`Falied to fetch map data: ${path}`);
+			}
+			const data = (await response.json()) as tiled.Map;
+			chunkCache.set(path, data);
+		} catch (err) {
+			debug.error(err);
+		}
+	});
+
+	await Promise.all(loadPromises);
+
+	go("game");
+});
+</file>
+
+<file path="src/utils.ts">
+import { GameObj, Vec2 } from "kaplay";
+import { spawnPlayer } from "./objects/player.ts";
+import { makeEnemy } from "./objects/enemy.ts";
+import { makeFlamebar } from "./objects/flamebar.ts";
+import { makeTurret } from "./objects/turret.ts";
+import * as tiled from "@kayahr/tiled";
+
+export const spawnManager = {
+	pendingSpawns: [] as Array<{ name: string; x: number; y: number }>,
+
+	addSpawn(name: string, x: number, y: number) {
+		this.pendingSpawns.push({ name, x, y });
+	},
+
+	processSpawns() {
+		let player: GameObj | null = null;
+		this.pendingSpawns.forEach((data) => {
+			if (data.name === "player") {
+				player = spawnPlayer(vec2(data.x, data.y));
+				//debug.log("player spawning...", data.name, data.x, data.y);
+			}
+
+			//--- OBSTACLEs ---
+
+			if (data.name === "enemy") {
+				if (chance(0.5)) {
+					add(makeEnemy(vec2(data.x, data.y)));
+					//debug.log("enemy spawning...", data.name, data.x, data.y);
+				}
+			}
+
+			if (data.name === "flame") {
+				if (chance(0.3)) {
+					add(makeFlamebar(vec2(data.x, data.y)));
+				}
+				//debug.log("flame spawning...", data.name, data.x, data.y);
+			}
+
+			if (data.name === "turret") {
+				if (chance(0.1)) {
+					add(makeTurret(vec2(data.x, data.y)));
+				}
+				//debug.log("turret spawning...", data.name, data.x, data.y);
+			}
+
+			if (data.name === "crate") {
+				add([
+					sprite("tileset", { frame: 10 }),
+					pos(vec2(data.x, data.y)),
+					area(),
+					anchor("center"),
+					body({ mass: 6 }),
+				]);
+				//debug.log("crate spawning...", data.name, data.x, data.y);
+			}
+		});
+		this.pendingSpawns = [];
+		return player;
+	},
+
+	reset() {
+		this.pendingSpawns = [];
+	},
+};
+
+export function parseChunk(mapData: tiled.Map, position: Vec2): GameObj {
+	const chunk = make([pos(position.x, position.y), "mapChunk"]);
+
+	for (const layer of mapData.layers) {
+		if (layer.type === "tilelayer") continue;
+
+		if (layer.type === "objectgroup" && layer.name === "colliders") {
+			for (const object of layer.objects) {
+				chunk.add([
+					pos(object.x, object.y),
+					rect(object.width, object.height),
+					opacity(0),
+					area(),
+					body({ isStatic: true }),
+
+					"ground",
+				]);
+			}
+			continue;
+		}
+
+		if (layer.type === "objectgroup" && layer.name === "positions") {
+			for (const object of layer.objects) {
+				if (!object.name) {
+					debug.log(`unknown object: ${object.id}`);
+					continue;
+				}
+				const worldX = position.x + object.x;
+				const worldY = position.y + object.y;
+
+				spawnManager.addSpawn(object.name, worldX, worldY);
+			}
+		}
+	}
+
+	return chunk;
+}
+</file>
+
+<file path="tsconfig.json">
+{
+	"compilerOptions": {
+		"noEmit": true,
+		"target": "esnext",
+		"moduleResolution": "node",
+		"allowImportingTsExtensions": true,
+	},
+	"include": [
+		"src/**/*.ts"
+	]
+}
+</file>
+
+<file path=".gitignore">
+node_modules/
+dist/
+.DS_Store
+src-tauri/target/
+.xml
+</file>
+
+<file path="package.json">
+{
+	"name": "Overgrown",
+	"type": "module",
+	"scripts": {
+		"build": "vite build",
+		"dev": "vite",
+		"preview": "vite preview",
+		"zip": "npm run build && mkdir -p dist && zip -r dist/game.zip dist -x \"**/.DS_Store\"",
+		"check": "tsc",
+		"dev:desktop": "tauri dev",
+		"build:desktop": "tauri build"
+	},
+	"dependencies": {
+		"kaplay": "^3001.0.19"
+	},
+	"devDependencies": {
+		"@kayahr/tiled": "^0.0.1",
+		"@tauri-apps/cli": "^1.6.3",
+		"@types/node": "^24.2.1",
+		"typescript": "^5.9.2",
+		"vite": "^7.1.2"
+	}
+}
+</file>
+
+<file path="src/kaplay.ts">
+import kaplay from "kaplay";
+import "kaplay/global";
+
+kaplay({
+	width: 480,
+	height: 640,
+	letterbox: true,
+	touchToMouse: true,
+	debug: true,
+	buttons: {
+		moveLeft: {
+			keyboard: ["left", "a"],
+		},
+		moveRight: {
+			keyboard: ["right", "d"],
+		},
+		moveUp: {
+			keyboard: ["up", "w"],
+		},
+		moveDown: {
+			keyboard: ["down", "s"],
+		},
+		jump: {
+			keyboard: ["space", "z"],
+		},
+		shoot: {
+			keyboard: ["x"],
+		},
+		pause: {
+			keyboard: ["escape"],
+		},
+	},
+});
+</file>
+
+<file path="src/main.ts">
+import "./kaplay.ts";
+import "./assets.ts";
+import "./scenes/loader.ts";
+import "./scenes/game.ts";
+
+go("loader");
+</file>
+
+<file path="src/objects/player.ts">
+import { GameObj, Vec2 } from "kaplay";
+import { spin, flickerable, bounce } from "../components.ts";
+
+export function spawnPlayer(position: Vec2): GameObj {
+	const player = add([
+		sprite("tileset", { frame: 301 }),
+		pos(position.x, position.y),
+		anchor("center"),
+		area(),
+		body({ jumpForce: 700 }),
+		health(5),
+		doubleJump(),
+		rotate(0),
+		spin(),
+		scale(1),
+		bounce(),
+		opacity(1),
+		timer(),
+		flickerable(),
+		"player",
+		{
+			canHurt: true,
+			hitCooldown: 2.0,
+			hasJumpedOnce: false,
+		},
+	]);
+
+	player.onButtonPress("jump", () => {
+		if (!player.hasJumpedOnce) {
+			player.hasJumpedOnce = true;
+			// The 'game:start' event will be heard by the game scene.
+			trigger("start", "game");
+		}
+		player.play("player_jump");
+		player.doubleJump();
+	});
+
+	player.onButtonDown("moveLeft", () => {
+		player.move(-100, 0);
+		player.play("player_move");
+		player.flipX = false;
+	});
+
+	player.onButtonDown("moveRight", () => {
+		player.move(100, 0);
+		player.play("player_move");
+		player.flipX = true;
+	});
+
+	player.onDoubleJump(() => {
+		player.spin();
+		player.trigger("bloom");
+	});
+
+	player.onButtonPress("shoot", () => {
+		player.trigger("fired");
+		player.bounce();
+	});
+
+	player.onCollide("enemy", (obj, col) => {
+		if (player.canHurt) {
+			player.hurt(1);
+			player.jump(400);
+			player.canHurt = false;
+			player.flicker(player.hitCooldown);
+			player.wait(player.hitCooldown, () => {
+				player.canHurt = true;
+			});
+			debug.log("player hit remaining: ", player.hp());
+		}
+	});
+
+	player.onCollide("flame", (obj, col) => {
+		if (player.canHurt) {
+			player.hurt(1);
+			player.jump(400);
+			player.canHurt = false;
+			player.flicker(player.hitCooldown);
+			player.wait(player.hitCooldown, () => {
+				player.canHurt = true;
+			});
+			debug.log("player hit remaining: ", player.hp());
+		}
+	});
+
+	player.onCollide("bullet", (obj, col) => {
+		if (player.canHurt) {
+			player.hurt(1);
+			player.jump(400);
+			player.canHurt = false;
+			player.flicker(player.hitCooldown);
+			player.wait(player.hitCooldown, () => {
+				player.canHurt = true;
+			});
+			debug.log("player hit remaining: ", player.hp());
+		}
+	});
+
+	player.onHurt(() => {
+		shake(3);
+	});
+
+	return player;
+}
+</file>
+
+<file path="src/scenes/game.ts">
+import { spawnBullet } from "../objects/bullet.ts";
+import { spawnPlatform } from "../objects/platform.ts";
+import { bulletData } from "../types.ts";
+import { parseChunk, spawnManager } from "../utils.ts";
+import { chunkCache } from "./loader.ts";
+import {
+	defaultStartMapPath,
+	level1Chunks,
+} from "../gameData/levels/level1_manifest.ts";
+import * as tiled from "@kayahr/tiled";
+import { GameObj } from "kaplay";
+
+const CHUNK_DIMENTIONS = 160;
+
+//--- MAP CHUNKS TYPES DEFINITION ---
+type ConnectorType =
+	| "ground"
+	| "air_mid"
+	| "air_high"
+	| "wall_right"
+	| "wall_left"
+	| "open"
+	| null;
+
+interface TiledChunkProperties {
+	left_connector: ConnectorType;
+	right_connector: ConnectorType;
+	top_connector: ConnectorType;
+	bottom_connector: ConnectorType;
+}
+type levelChunk = tiled.Map & {
+	properties: TiledChunkProperties;
+	path: string;
+};
+
+//--- TILED HELPER FUNCTION ---
+function transformTiledProperties(
+	properties: any[] | undefined
+): TiledChunkProperties | null {
+	if (!Array.isArray(properties)) {
+		return null;
+	}
+	const props: Partial<TiledChunkProperties> = {};
+	for (const prop of properties) {
+		if (prop.name === "left_connector") props.left_connector = prop.value;
+		if (prop.name === "right_connector") props.right_connector = prop.value;
+		if (prop.name === "top_connector") props.top_connector = prop.value;
+		if (prop.name === "bottom_connector") props.bottom_connector = prop.value;
+	}
+	if (
+		props.left_connector !== undefined &&
+		props.right_connector !== undefined &&
+		props.top_connector !== undefined &&
+		props.bottom_connector !== undefined
+	) {
+		return props as TiledChunkProperties;
+	}
+	return null;
+}
+
+//--- GAME SCENE CODE ---
+scene("game", async () => {
+	// --- SCENE STATE & CONFIG ---
+	setGravity(1600);
+	setLayers(["bg", "obj", "ui"], "obj");
+	let lastGeneratedRowY = 0;
+	let lastChunkRightConnector: ConnectorType = "ground";
+	let lastRowTopConectors: ConnectorType[] = ["ground", "ground", "ground"];
+	let hasGameStarted = false;
+	let isGameOver = false;
+	const gameSpeed = 10;
+	const verticalThreshold = height() / 3;
+
+	const gameManager = add([
+		"game", // The tag we will trigger events on
+	]);
+
+	//--- INITIAL MAP SETUP ---
+	const startMapData = chunkCache.get(defaultStartMapPath);
+	if (startMapData) {
+		const startMap = parseChunk(startMapData, vec2(0, 0));
+		startMap.use(sprite("default_map"));
+		add(startMap);
+	}
+
+	// --- PLAYER CREATION ---
+	const player = spawnManager.processSpawns();
+	if (!player) {
+		debug.error(
+			"Player object could not be created by spawnManager. Check the 'player' entry in your default_map.json"
+		);
+		return;
+	}
+
+	// --- INPUT HANDLING ---
+	on("start", "game", () => {
+		if (!hasGameStarted) {
+			hasGameStarted = true;
+		}
+	});
+
+	onButtonPress("jump", () => {
+		if (isGameOver) {
+			go("loader");
+		}
+	});
+
+	//--- UI SETUP ---
+	let score = 0;
+	const startY = player.pos.y;
+	const scoreLabel = add([
+		text(`Height: ${score}`),
+		pos(12, 12),
+		layer("ui"),
+		fixed(),
+	]);
+
+	function showGameOverScreen() {
+		add([
+			text("Game Over"),
+			pos(center()),
+			anchor("center"),
+			layer("ui"),
+			fixed(),
+			scale(2),
+		]);
+		add([
+			text("Press Jump to Restart", { size: 16 }),
+			pos(center().x, center().y + 40),
+			anchor("center"),
+			layer("ui"),
+			fixed(),
+		]);
+	}
+
+	//--- MAIN GAME LOOP ---
+	onUpdate(() => {
+		if (isGameOver) return;
+
+		if (player.pos.y > camPos().y + height() / 2) {
+			isGameOver = true;
+			shake(12);
+			showGameOverScreen();
+			return;
+		}
+
+		if (!hasGameStarted) return;
+
+		// --- SCORE ---
+		const heightClimbed = startY - player.pos.y;
+		if (heightClimbed > 0) {
+			const newScore = Math.floor(heightClimbed / 10);
+			if (newScore > score) {
+				score = newScore;
+				scoreLabel.text = `Height: ${score}`;
+			}
+		}
+
+		// --- CAMERA ---
+		if (player.screenPos().y < verticalThreshold) {
+			const targetCamY = player.pos.y - verticalThreshold + height() / 2;
+			camPos(width() / 2, lerp(camPos().y, targetCamY, 0.1));
+		} else {
+			camPos(camPos().x, camPos().y - gameSpeed * dt());
+		}
+
+		//--- GENERATION ---
+		if (player.pos.y < lastGeneratedRowY + CHUNK_DIMENTIONS * 2.5) {
+			fillChunksRow();
+			spawnManager.processSpawns(); // This now only spawns non-player objects
+		}
+	});
+
+	//--- CHUNK DATA PREPARATION ---
+	const allChunks: levelChunk[] = level1Chunks
+		.map((path) => {
+			const mapData = chunkCache.get(path)!;
+			const transformed = transformTiledProperties(mapData.properties as any[]);
+			return { ...mapData, path, properties: transformed };
+		})
+		.filter((map): map is levelChunk => {
+			if (!map.properties) {
+				debug.error(`Chunk "${map.path}" is invalid.`);
+				return false;
+			}
+			return true;
+		});
+
+	if (allChunks.length === 0) {
+		debug.error("No valid level chunks were found!");
+		return;
+	}
+
+	const leftCompat = new Map<ConnectorType, levelChunk[]>();
+	for (const c of allChunks) {
+		const l = c.properties.left_connector;
+		if (!leftCompat.has(l)) leftCompat.set(l, []);
+		leftCompat.get(l)!.push(c);
+	}
+
+	//--- LEVEL GENERATION LOGIC ---
+	function fillChunksRow() {
+		const chunksInRow = Math.floor(width() / CHUNK_DIMENTIONS);
+		const newRowY = lastGeneratedRowY - CHUNK_DIMENTIONS;
+		let bag = new Set(allChunks);
+		const currentRowTopConnectors: ConnectorType[] = [];
+
+		for (let i = 0; i < chunksInRow; i++) {
+			const leftNeed = lastChunkRightConnector;
+			const topNeed = lastRowTopConectors[i];
+			let candidates = leftCompat.get(leftNeed) ?? [];
+			candidates = candidates.filter((c) => {
+				const untraversable =
+					topNeed === "air_high" &&
+					c.properties.bottom_connector === "ground" &&
+					c.properties.top_connector !== "air_high";
+				return !untraversable;
+			});
+			let preferred = candidates.filter((c) => bag.has(c));
+			let chosen: levelChunk | undefined;
+			if (preferred.length > 0) chosen = choose(preferred);
+			else if (candidates.length > 0) chosen = choose(candidates);
+			else {
+				debug.log(`(Fallback) Total dead end. Picking random chunk.`);
+				chosen = choose(allChunks);
+			}
+			if (!chosen) {
+				debug.error("No chunk at all!");
+				continue;
+			}
+			const newChunk = parseChunk(chosen, vec2(i * CHUNK_DIMENTIONS, newRowY));
+			newChunk.use(
+				offscreen({ destroy: true, distance: CHUNK_DIMENTIONS * 4 })
+			);
+			let pth = chosen.path.replace(/^.*[/\\]/, "").replace(/\.[^.]+$/, "");
+			newChunk.add([sprite(pth)]);
+			add(newChunk);
+			bag.delete(chosen);
+			lastChunkRightConnector = chosen.properties.right_connector;
+			currentRowTopConnectors.push(chosen.properties.top_connector);
+		}
+		lastGeneratedRowY = newRowY;
+		lastRowTopConectors = currentRowTopConnectors;
+	}
+
+	//--- EVENT LISTENERS ---
+	player.on("bloom", () => {
+		spawnPlatform(vec2(player.pos.x, player.pos.y + 5));
+	});
+	on("fired", "player", (obj) => {
+		const data: bulletData = {
+			shooter: "player",
+			speed: 600,
+			position: obj.pos,
+			damage: 1,
+			dir: vec2(obj.flipX ? 1 : -1, 0),
+		};
+		spawnBullet(data);
+	});
+	on("fired", "turret", (obj) => {
+		const direction = player.pos.sub(obj.pos).unit();
+		const data: bulletData = {
+			shooter: "turret",
+			speed: 600,
+			position: obj.pos,
+			damage: 1,
+			dir: direction,
+		};
+		spawnBullet(data);
+	});
+});
+</file>
+
+<file path="vite.config.ts">
+import { defineConfig } from "vite";
+
+const kaplayCongrats = () => {
+	return {
+		name: "vite-plugin-kaplay-hello",
+		buildEnd() {
+			const line = "---------------------------------------------------------";
+			const msg = `🦖 Awesome pal! Send your game to us:\n\n💎 Discord: https://discord.com/invite/aQ6RuQm3TF \n💖 Donate to KAPLAY: https://opencollective.com/kaplay\n\ (you can disable this msg on vite.config)`;
+
+			process.stdout.write(`\n${line}\n${msg}\n${line}\n`);
+		},
+	};
+};
+
+export default defineConfig({
+	// index.html out file will start with a relative path for script
+	base: "./",
+	server: {
+		port: 3001,
+	},
+	build: {
+		// disable this for low bundle sizes
+		sourcemap: true,
+		rollupOptions: {
+			output: {
+				manualChunks: {
+					kaplay: ["kaplay"],
+				},
+			},
+		},
+	},
+	plugins: [
+		// Disable messages removing this line
+		kaplayCongrats(),
+	],
+});
+</file>
+
+</files>

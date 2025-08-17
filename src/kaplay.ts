@@ -14,8 +14,20 @@ kaplay({
 		moveRight: {
 			keyboard: ["right", "d"],
 		},
+		moveUp: {
+			keyboard: ["up", "w"],
+		},
+		moveDown: {
+			keyboard: ["down", "s"],
+		},
 		jump: {
 			keyboard: ["space", "z"],
+		},
+		shoot: {
+			keyboard: ["x"],
+		},
+		pause: {
+			keyboard: ["escape"],
 		},
 	},
 });

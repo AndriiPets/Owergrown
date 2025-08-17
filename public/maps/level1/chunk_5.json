@@ -6,9 +6,9 @@
          "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 355, 356, 356, 357,
+            85, 86, 87, 0, 0, 0, 375, 376, 376, 377,
+            0, 0, 0, 0, 0, 0, 395, 396, 396, 397,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -30,17 +30,6 @@
          "objects":[
                 {
                  "height":16,
-                 "id":6,
-                 "name":"",
-                 "rotation":0,
-                 "type":"",
-                 "visible":true,
-                 "width":48,
-                 "x":112,
-                 "y":64
-                }, 
-                {
-                 "height":16,
                  "id":7,
                  "name":"",
                  "properties":[
@@ -60,6 +49,40 @@
                  "width":48,
                  "x":0,
                  "y":64
+                }, 
+                {
+                 "height":48,
+                 "id":10,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":64,
+                 "x":96,
+                 "y":48
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":3,
+         "name":"positions",
+         "objects":[
+                {
+                 "height":0,
+                 "id":9,
+                 "name":"enemy",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":128,
+                 "y":48
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -67,8 +90,8 @@
          "x":0,
          "y":0
         }],
- "nextlayerid":3,
- "nextobjectid":8,
+ "nextlayerid":4,
+ "nextobjectid":11,
  "orientation":"orthogonal",
  "properties":[
         {
@@ -94,7 +117,11 @@
  "renderorder":"right-down",
  "tiledversion":"1.11.2",
  "tileheight":16,
- "tilesets":[],
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
  "tilewidth":16,
  "type":"map",
  "version":"1.10",

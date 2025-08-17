@@ -7,11 +7,11 @@
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 19,
+            0, 0, 0, 0, 0, 0, 0, 85, 86, 87,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 17, 0, 0, 0, 0, 0, 0,
+            0, 0, 85, 86, 86, 87, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
          "height":10,
          "id":1,
@@ -38,6 +38,52 @@
                  "width":48,
                  "x":112,
                  "y":80
+                }, 
+                {
+                 "height":16,
+                 "id":37,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":64,
+                 "x":32,
+                 "y":128
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":3,
+         "name":"positions",
+         "objects":[
+                {
+                 "height":0,
+                 "id":38,
+                 "name":"crate",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":80,
+                 "y":128
+                }, 
+                {
+                 "height":0,
+                 "id":39,
+                 "name":"turret",
+                 "point":true,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":144,
+                 "y":112
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -45,8 +91,8 @@
          "x":0,
          "y":0
         }],
- "nextlayerid":3,
- "nextobjectid":36,
+ "nextlayerid":4,
+ "nextobjectid":40,
  "orientation":"orthogonal",
  "properties":[
         {
@@ -72,7 +118,11 @@
  "renderorder":"right-down",
  "tiledversion":"1.11.2",
  "tileheight":16,
- "tilesets":[],
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
  "tilewidth":16,
  "type":"map",
  "version":"1.10",

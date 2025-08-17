@@ -5,13 +5,13 @@
         {
          "data":[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 85, 86, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            355, 357, 0, 0, 0, 0, 0, 0, 355, 357,
+            395, 397, 0, 0, 0, 0, 0, 0, 395, 397,
+            0, 0, 0, 0, 0, 0, 0, 0, 4, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 7, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
          "height":10,
          "id":1,
@@ -30,7 +30,18 @@
          "objects":[
                 {
                  "height":16,
-                 "id":23,
+                 "id":25,
+                 "name":"",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":32,
+                 "x":64,
+                 "y":32
+                }, 
+                {
+                 "height":32,
+                 "id":27,
                  "name":"",
                  "rotation":0,
                  "type":"",
@@ -40,8 +51,8 @@
                  "y":80
                 }, 
                 {
-                 "height":16,
-                 "id":24,
+                 "height":32,
+                 "id":28,
                  "name":"",
                  "rotation":0,
                  "type":"",
@@ -49,17 +60,29 @@
                  "width":32,
                  "x":128,
                  "y":80
-                }, 
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":3,
+         "name":"positions",
+         "objects":[
                 {
-                 "height":16,
-                 "id":25,
-                 "name":"",
+                 "height":0,
+                 "id":26,
+                 "name":"turret",
+                 "point":true,
                  "rotation":0,
                  "type":"",
                  "visible":true,
-                 "width":32,
-                 "x":64,
-                 "y":32
+                 "width":0,
+                 "x":80,
+                 "y":112
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -67,8 +90,8 @@
          "x":0,
          "y":0
         }],
- "nextlayerid":3,
- "nextobjectid":26,
+ "nextlayerid":4,
+ "nextobjectid":29,
  "orientation":"orthogonal",
  "properties":[
         {
@@ -94,7 +117,11 @@
  "renderorder":"right-down",
  "tiledversion":"1.11.2",
  "tileheight":16,
- "tilesets":[],
+ "tilesets":[
+        {
+         "firstgid":1,
+         "source":"..\/..\/..\/..\/..\/..\/..\/monochrome_tilemap_modified.tsx"
+        }],
  "tilewidth":16,
  "type":"map",
  "version":"1.10",

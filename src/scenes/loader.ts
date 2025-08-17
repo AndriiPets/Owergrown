@@ -2,11 +2,16 @@ import {
 	defaultStartMapPath,
 	level1Chunks,
 } from "../gameData/levels/level1_manifest";
+import { spawnManager } from "../utils";
 import * as tiled from "@kayahr/tiled";
 
 export const chunkCache = new Map<string, tiled.Map>();
 
 scene("loader", async () => {
+	// clear previous state
+	setBackground(BLACK);
+	chunkCache.clear();
+	spawnManager.reset();
 	//loading message for loading all map data
 	add([
 		text("Loading chunks..."),
